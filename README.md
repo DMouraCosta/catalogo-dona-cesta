@@ -120,12 +120,12 @@ O número de contato deve ser configurado no arquivo `main.js`.
 ```javascript
 // --- CONFIGURAÇÃO ---
 // Substitua pelo número real da loja no formato internacional:
-const WHATSAPP_NUMBER = "5589988227748"; // Exemplo
-const URL_BASE = "catalogo-donacestas.vercel.app";
+const WHATSAPP_NUMBER = "5599999999999"; // Exemplo
+const URL_BASE = "exemplo.com.br";
 ```
 
 **Formato esperado:** `Código do país + DDD + número`
-Exemplo: `5589988227748`
+Exemplo: `5599999999999`
 
 ---
 
