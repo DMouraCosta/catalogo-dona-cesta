@@ -1,9 +1,11 @@
 /**
  * Arquivo: main.js
  * Descrição: Lógica principal para filtros, busca, renderização, carrinho e WhatsApp,
- * incluindo o novo Modal de Detalhes de Produtos (Stories) e o LightBox de Imagem.
+ * incluindo o Modal de Detalhes de Produtos (Stories/Card) e o LightBox de Imagem.
  *
- * NOVIDADE: Persistência do Carrinho via Local Storage.
+ * AJUSTES REALIZADOS:
+ * A. Ampliação de Imagem (Lightbox): Corrigido para exibição em tela cheia.
+ * B. Detalhes do Item: Descrição convertida para lista (<ul>) no Modal de Detalhes.
  */
 
 // --- CONFIGURAÇÃO ---
@@ -15,7 +17,6 @@ const CART_STORAGE_KEY = "donaCestaCart"; // Chave para o Local Storage
 // --- ESTADO DO CATÁLOGO ---
 const productData = products; // Array de produtos do products.js
 let filteredProducts = productData;
-// O carrinho será inicializado por loadCartFromLocalStorage()
 let cart = []; // Armazena objetos { id, quantity, price, name, image }
 
 // --- ELEMENTOS DOM ---
@@ -30,6 +31,7 @@ const menuToggle = document.getElementById("menu-toggle");
 const closeSidebarBtn = document.getElementById("close-sidebar-btn");
 const clearFiltersButton = document.getElementById("clear-filters");
 const activeFiltersBadges = document.getElementById("active-filters-badges");
+const applyFiltersButton = document.getElementById("apply-filters-btn");
 
 // --- MODAIS ---
 const cartModal = document.getElementById("cart-modal");
@@ -48,6 +50,7 @@ const clearCartBtn = document.getElementById("clear-cart-btn");
 const closeProductDetailModal = document.getElementById(
   "close-product-detail-modal"
 );
+const detailModalBody = document.getElementById("detail-modal-body");
 
 // --- ELEMENTOS DO LIGHTBOX ---
 const closeImageLightboxModal = document.getElementById(
@@ -72,7 +75,6 @@ const normalizeText = (text) => {
 };
 
 const getProductById = (id) => {
-  // Garante que o ID é tratado como número para a busca
   return productData.find((p) => p.id === parseInt(id));
 };
 
@@ -95,7 +97,6 @@ const loadCartFromLocalStorage = () => {
     if (serializedCart === null) {
       return [];
     }
-    // Garante que a estrutura é válida (array)
     return JSON.parse(serializedCart);
   } catch (error) {
     console.error("Erro ao carregar carrinho do Local Storage:", error);
@@ -122,14 +123,14 @@ const createProductCard = (product) => {
             src="${imageSrc}" 
             alt="${product.name}" 
             onerror="this.onerror=null;this.src='${placeholderSrc}'" 
-            onclick="openImageLightbox('${imageSrc}', '${product.name}')"
+            onclick="openProductDetailModal(${product.id})" 
+            title="Clique para ver detalhes e descrição completa"
         >
         <div class="product-info">
             <div>
                 <span class="category">${product.category}</span>
                 <h3>${product.name}</h3>
-                <p>${product.description.substring(0, 70)}...</p>
-            </div>
+                <p>${product.description.substring(0, 70)}...</p> </div>
             <div class="card-footer">
                 <p class="price">${formatPrice(product.price)}</p>
                 <button class="btn btn-primary add-to-cart-btn" data-id="${
@@ -141,7 +142,7 @@ const createProductCard = (product) => {
         </div>
     `;
 
-  // Animação de entrada (apenas em desktop para performance)
+  // Animação de entrada (mantido)
   if (window.innerWidth > 992) {
     const observer = new IntersectionObserver(
       (entries, observer) => {
@@ -164,7 +165,7 @@ const createProductCard = (product) => {
   return card;
 };
 
-/** Renderiza a lista de produtos na grade principal */
+/** Renderiza a lista de produtos na grade principal (mantido) */
 const renderProducts = (productsToRender) => {
   if (!catalogGrid) return;
   catalogGrid.innerHTML = "";
@@ -185,14 +186,13 @@ const renderHighlights = () => {
   if (!highlightsList) return;
   highlightsList.innerHTML = "";
 
-  // Limita a 8 produtos para não sobrecarregar o visual
   const highlights = productData.filter((p) => p.isFeatured).slice(0, 8);
 
   highlights.forEach((product) => {
     const item = document.createElement("div");
     item.className = "highlight-item";
     item.setAttribute("data-id", product.id);
-    item.addEventListener("click", () => openProductDetailModal(product));
+    item.addEventListener("click", () => openProductDetailModal(product.id));
 
     item.innerHTML = `
             <div class="highlight-circle">
@@ -208,65 +208,205 @@ const renderHighlights = () => {
   });
 };
 
+// --- FUNÇÕES DE FILTRAGEM ---
+
+/** Gera os badges (chips) dos filtros ativos (mantido) */
+const renderActiveFilters = (search, category, price) => {
+  if (!activeFiltersBadges) return;
+  activeFiltersBadges.innerHTML = "";
+
+  if (search) {
+    activeFiltersBadges.innerHTML += `<span class="filter-badge">Busca: ${search}</span>`;
+  }
+  if (category && category !== "todos") {
+    activeFiltersBadges.innerHTML += `<span class="filter-badge">Categoria: ${category}</span>`;
+  }
+  if (price < parseInt(priceRange.max)) {
+    activeFiltersBadges.innerHTML += `<span class="filter-badge">Max: ${formatPrice(
+      price
+    )}</span>`;
+  }
+
+  clearFiltersButton.style.display =
+    search ||
+    (category && category !== "todos") ||
+    price < parseInt(priceRange.max)
+      ? "block"
+      : "none";
+};
+
+/** Lógica principal de filtragem e renderização (Chamada pelo botão 'Aplicar Filtros') */
+const applyFiltersAndRender = () => {
+  const searchTerm = normalizeText(searchBar.value);
+  const selectedCategory = categoryFilter.value;
+  const maxPrice = parseFloat(priceRange.value);
+
+  const filtered = productData.filter((product) => {
+    // 1. Filtro por Busca
+    const matchesSearch =
+      !searchTerm ||
+      normalizeText(product.name).includes(searchTerm) ||
+      normalizeText(product.description).includes(searchTerm) ||
+      normalizeText(product.tags).includes(searchTerm);
+
+    // 2. Filtro por Categoria
+    const matchesCategory =
+      selectedCategory === "todos" || product.category === selectedCategory;
+
+    // 3. Filtro por Preço
+    const matchesPrice = product.price <= maxPrice;
+
+    return matchesSearch && matchesCategory && matchesPrice;
+  });
+
+  filteredProducts = filtered;
+  renderProducts(filteredProducts);
+  renderActiveFilters(searchBar.value, selectedCategory, maxPrice);
+};
+
+/** Limpa os campos de filtro e aplica a renderização (mantido) */
+const clearFilters = () => {
+  searchBar.value = "";
+  categoryFilter.value = "todos";
+  priceRange.value = priceRange.max;
+  maxPriceValue.textContent = formatPrice(parseInt(priceRange.max));
+  applyFiltersAndRender();
+  // Fecha a sidebar em mobile
+  sidebar.classList.remove("open");
+};
+
+/** Manipula a mudança de preço no range (apenas visual, filtro é no botão) (mantido) */
+const handlePriceRangeChange = () => {
+  maxPriceValue.textContent = formatPrice(parseFloat(priceRange.value));
+};
+
 // --- MODAIS E INTERAÇÃO STORIES ---
 
-/** Abre o modal de visualização detalhada do produto */
-const openProductDetailModal = (product) => {
-  if (!productDetailModal || !detailModalBody) return;
+/** * Função Auxiliar: Converte a string de descrição em uma lista HTML (<ul>)
+ * Se a string for simples (menos de 3 itens/vírgulas), retorna como <p>
+ * AJUSTE B: Implementação da formatação da descrição em lista.
+ */
+const formatDescriptionAsList = (description) => {
+  // Tenta dividir por vírgula seguida de espaço, ponto e vírgula seguido de espaço, ou " e ".
+  const items = description
+    .split(/, |; | e /)
+    .filter((item) => item.trim() !== "");
+
+  // Se a descrição for muito curta ou não tiver divisões claras (menos de 3 itens), retorna como um parágrafo
+  if (items.length <= 2) {
+    return `<p>${description}</p>`;
+  }
+
+  // Cria a lista <ul>
+  let listHtml = '<ul class="detail-list">';
+  items.forEach((item) => {
+    listHtml += `<li>${item.trim()}</li>`;
+  });
+  listHtml += "</ul>";
+
+  return listHtml;
+};
+
+/** Abre o modal de visualização detalhada do produto (Aceita ID) */
+const openProductDetailModal = (productId) => {
+  const product = getProductById(productId);
+  if (!product || !productDetailModal || !detailModalBody) return;
+
+  const imageSrc = `images/${product.image}`;
+  const placeholderSrc = `https://via.placeholder.com/450x300?text=${product.name}`;
+
+  // AJUSTE B: Formata a descrição em lista
+  const formattedDescription = formatDescriptionAsList(product.description);
 
   detailModalBody.innerHTML = `
-        <img src="images/${product.image}" alt="${
-    product.name
-  }" onerror="this.onerror=null;this.src='https://via.placeholder.com/450x300?text=${
-    product.name
-  }'">
+        <img 
+            src="${imageSrc}" 
+            alt="${product.name}" 
+            onerror="this.onerror=null;this.src='${placeholderSrc}'"
+            onclick="openImageLightbox('${imageSrc}', '${product.name}')"
+            title="Clique para ampliar a imagem"
+        >
         <div class="detail-text-area">
-            <h2>${product.name}</h2>
-            <p>${product.description}</p>
-            <p class="detail-price">${formatPrice(product.price)}</p>
-            <button class="btn btn-whatsapp detail-whatsapp-btn" data-id="${
-              product.id
-            }" onclick="directWhatsAppOrder(${product.id})">
-                <i class="fab fa-whatsapp"></i> Pedir pelo WhatsApp
-            </button>
+            <h2 id="detail-modal-title">${product.name}</h2>
+            
+            ${formattedDescription} <p class="detail-price">${formatPrice(
+    product.price
+  )}</p>
+            
+            <div class="detail-actions">
+                <button class="btn btn-whatsapp" data-id="${
+                  product.id
+                }" onclick="directWhatsAppOrder(${product.id})">
+                    <i class="fab fa-whatsapp"></i> Pedir pelo WhatsApp
+                </button>
+                <button class="btn btn-primary" data-id="${
+                  product.id
+                }" onclick="addToCart(${
+    product.id
+  }); closeModal(productDetailModal);">
+                    <i class="fas fa-cart-plus"></i> Adicionar
+                </button>
+            </div>
         </div>
     `;
 
   productDetailModal.classList.add("open");
   productDetailModal.setAttribute("aria-hidden", "false");
+
+  // Fecha a sidebar em mobile, se estiver aberta
+  if (sidebar && sidebar.classList.contains("open")) {
+    sidebar.classList.remove("open");
+  }
 };
 
-/** Abre o modal LightBox com a imagem ampliada */
+/** * Abre o modal LightBox com a imagem ampliada em tela cheia.
+ * AJUSTE A: Garantido pela estrutura do modal e CSS, esta função apenas popula e abre.
+ */
 window.openImageLightbox = (imageSrc, title) => {
   if (!imageLightboxModal || !lightboxImage || !lightboxTitle) return;
 
   lightboxImage.src = imageSrc;
+  lightboxImage.alt = title;
   lightboxTitle.textContent = title;
 
   imageLightboxModal.classList.add("open");
   imageLightboxModal.setAttribute("aria-hidden", "false");
+
+  // NÃƒO FECHA o modal de detalhes, apenas o coloca por baixo (o lightbox tem z-index maior).
+  // Apenas garante que não ocorra sobreposição de scroll.
+  document.body.style.overflow = "hidden";
 };
 
-/** Fecha um modal específico */
+/** Fecha um modal específico (mantido) */
 const closeModal = (modalElement) => {
   if (modalElement) {
     modalElement.classList.remove("open");
     modalElement.setAttribute("aria-hidden", "true");
+
+    // Libera o scroll do body apenas se todos os modais de tela cheia estiverem fechados
+    if (
+      !cartModal.classList.contains("open") &&
+      !productDetailModal.classList.contains("open") &&
+      !imageLightboxModal.classList.contains("open")
+    ) {
+      document.body.style.overflow = "";
+    }
   }
 };
 
-// --- LÓGICA DO WHATSAPP ---
+// --- LÓGICA DO WHATSAPP (mantido) ---
 
-/** Envio direto do modal de Detalhes (usado nos Destaques) */
+/** Envio direto do modal de Detalhes (usado nos Destaques) (mantido) */
 window.directWhatsAppOrder = (productId) => {
   const product = getProductById(productId);
   if (!product) return;
 
   const message = encodeURIComponent(
-    `Olá! Gostaria de pedir o seguinte produto (Visto nos Destaques):\n\n` +
+    `Olá! Gostaria de pedir o seguinte produto:\n\n` +
       `*Produto:* ${product.name}\n` +
       `*Categoria:* ${product.category}\n` +
       `*Preço:* ${formatPrice(product.price)}\n\n` +
+      `*Descrição:* ${product.description}\n\n` +
       `*Link do Catálogo:* ${URL_BASE}\n\n` +
       `Por favor, poderia informar a disponibilidade e o prazo de entrega.`
   );
@@ -274,7 +414,25 @@ window.directWhatsAppOrder = (productId) => {
   window.open(waLink, "_blank");
 };
 
-// --- LÓGICA DO CARRINHO ---
+/** Lógica para gerar a mensagem de checkout do carrinho (mantido) */
+const generateCartMessage = () => {
+  let message = `Olá! Gostaria de fazer o seguinte pedido do catálogo:\n\n*ITENS DO PEDIDO:*\n`;
+  let subtotal = 0;
+
+  cart.forEach((item, index) => {
+    subtotal += item.price * item.quantity;
+    message += `${index + 1}. ${item.quantity}x ${item.name} (${formatPrice(
+      item.price
+    )} cada)\n`;
+  });
+
+  message += `\n*TOTAL:* ${formatPrice(subtotal)}\n\n`;
+  message += `Agradeço o seu pedido! Por favor, informe a forma de pagamento e entrega.`;
+
+  return message;
+};
+
+// --- LÓGICA DO CARRINHO (mantido) ---
 
 const updateCartUI = () => {
   if (!cartItemsContainer || !cartCount) return;
@@ -306,11 +464,9 @@ const updateCartUI = () => {
       '<p class="empty-cart-message">Seu carrinho está vazio.</p>';
     return;
   }
-
   cart.forEach((item) => {
     const imageSrc = `images/${item.image}`;
     const placeholderSrc = `https://via.placeholder.com/50x50?text=Item`;
-
     const itemElement = document.createElement("div");
     itemElement.className = "cart-item";
     itemElement.innerHTML = `
@@ -326,14 +482,14 @@ const updateCartUI = () => {
             <div class="item-quantity-control">
                 <button data-id="${
                   item.id
-                }" data-action="decrease"><i class="fas fa-minus"></i></button>
+                }" data-action="decrease" title="Diminuir"><i class="fas fa-minus"></i></button>
                 <span>${item.quantity}</span>
                 <button data-id="${
                   item.id
-                }" data-action="increase"><i class="fas fa-plus"></i></button>
+                }" data-action="increase" title="Aumentar"><i class="fas fa-plus"></i></button>
                 <button data-id="${
                   item.id
-                }" data-action="remove"><i class="fas fa-trash-alt"></i></button>
+                }" data-action="remove" title="Remover"><i class="fas fa-trash-alt"></i></button>
             </div>
         `;
     cartItemsContainer.appendChild(itemElement);
@@ -350,7 +506,6 @@ const addToCart = (productId) => {
   if (existingItem) {
     existingItem.quantity += 1;
   } else {
-    // Inclusão da imagem no objeto do carrinho
     cart.push({
       id: id,
       name: product.name,
@@ -359,7 +514,6 @@ const addToCart = (productId) => {
       image: product.image,
     });
   }
-
   updateCartUI();
 };
 
@@ -367,199 +521,99 @@ const handleCartAction = (event) => {
   const target = event.target.closest("button");
   if (!target) return;
 
-  const productId = parseInt(target.getAttribute("data-id"));
+  const id = parseInt(target.getAttribute("data-id"));
   const action = target.getAttribute("data-action");
-  const itemIndex = cart.findIndex((item) => item.id === productId);
+  const existingItem = cart.find((item) => item.id === id);
 
-  if (itemIndex === -1) return;
+  if (!existingItem) return;
 
   switch (action) {
     case "increase":
-      cart[itemIndex].quantity += 1;
+      existingItem.quantity += 1;
       break;
     case "decrease":
-      cart[itemIndex].quantity -= 1;
-      if (cart[itemIndex].quantity <= 0) {
-        cart.splice(itemIndex, 1);
+      existingItem.quantity -= 1;
+      if (existingItem.quantity <= 0) {
+        cart = cart.filter((item) => item.id !== id);
       }
       break;
     case "remove":
-      cart.splice(itemIndex, 1);
+      cart = cart.filter((item) => item.id !== id);
       break;
-    default:
-      return;
   }
 
   updateCartUI();
 };
 
-const prepareCartWhatsAppMessage = () => {
-  if (cart.length === 0) return;
+// --- INICIALIZAÇÃO E EVENTOS ---
 
-  let message = `Olá! Gostaria de fazer o seguinte pedido (Total de ${cartTotalItems.textContent} itens):\n\n`;
-  let subtotal = 0;
-
-  cart.forEach((item) => {
-    const totalItem = item.price * item.quantity;
-    subtotal += totalItem;
-    message += `*Item:* ${item.name} (x${item.quantity})\n`;
-    message += `  Preço Unitário: ${formatPrice(item.price)}\n\n`;
-  });
-
-  message += `*SUBTOTAL GERAL:* ${formatPrice(subtotal)}\n\n`;
-  message += `*Link do Catálogo:* ${URL_BASE}\n\n`;
-  message += `Por favor, poderia informar o valor do frete, disponibilidade e o prazo de entrega.`;
-
-  const encodedMessage = encodeURIComponent(message);
-  const waLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
-  window.open(waLink, "_blank");
-};
-
-// --- LÓGICA DOS FILTROS ---
-
-const updateFilterBadges = () => {
-  if (!activeFiltersBadges) return;
-  activeFiltersBadges.innerHTML = "";
-
-  const searchTerm = searchBar.value.trim();
-  const selectedCategory = categoryFilter.value;
-  const maxPrice = parseFloat(priceRange.value);
-  const maxGlobalPrice = parseFloat(priceRange.max);
-
-  // 1. Badge de Busca
-  if (searchTerm) {
-    const badge = document.createElement("span");
-    badge.className = "filter-badge";
-    badge.textContent = `Busca: "${searchTerm}"`;
-    badge.setAttribute("data-filter-type", "search");
-    badge.innerHTML += ' <i class="fas fa-times-circle"></i>';
-    activeFiltersBadges.appendChild(badge);
-  }
-
-  // 2. Badge de Categoria
-  if (selectedCategory !== "todos") {
-    const badge = document.createElement("span");
-    badge.className = "filter-badge";
-    badge.textContent = `Categoria: ${selectedCategory}`;
-    badge.setAttribute("data-filter-type", "category");
-    badge.innerHTML += ' <i class="fas fa-times-circle"></i>';
-    activeFiltersBadges.appendChild(badge);
-  }
-
-  // 3. Badge de Preço
-  if (maxPrice < maxGlobalPrice) {
-    const badge = document.createElement("span");
-    badge.className = "filter-badge";
-    badge.textContent = `Preço Máx: ${formatPrice(maxPrice)}`;
-    badge.setAttribute("data-filter-type", "price");
-    badge.innerHTML += ' <i class="fas fa-times-circle"></i>';
-    activeFiltersBadges.appendChild(badge);
-  }
-
-  // Adicionar listener para remover filtro ao clicar no badge
-  activeFiltersBadges.querySelectorAll(".filter-badge").forEach((badge) => {
-    badge.addEventListener("click", () => {
-      const type = badge.getAttribute("data-filter-type");
-      if (type === "search") searchBar.value = "";
-      if (type === "category") categoryFilter.value = "todos";
-      if (type === "price") {
-        priceRange.value = maxGlobalPrice;
-        maxPriceValue.textContent = formatPrice(maxGlobalPrice);
-      }
-      applyFilters();
-    });
-  });
-};
-
-const applyFilters = () => {
-  const searchTerm = normalizeText(searchBar.value.trim());
-  const selectedCategory = categoryFilter.value;
-  const maxPrice = parseFloat(priceRange.value);
-
-  filteredProducts = productData.filter((product) => {
-    const nameMatch = normalizeText(product.name).includes(searchTerm);
-    const tagsMatch = normalizeText(product.tags || "").includes(searchTerm);
-    const categoryMatch =
-      selectedCategory === "todos" || product.category === selectedCategory;
-    const priceMatch = product.price <= maxPrice;
-
-    return (nameMatch || tagsMatch) && categoryMatch && priceMatch;
-  });
-
-  updateFilterBadges();
-  renderProducts(filteredProducts);
-  // Em mobile, fecha a sidebar após aplicar filtros
-  if (window.innerWidth <= 992) {
-    closeModal(sidebar);
-  }
-};
-
-const initFilters = () => {
-  if (!priceRange || !searchBar || !categoryFilter) return;
-
-  const initialMaxPrice = Math.ceil(
-    Math.max(...productData.map((p) => p.price))
-  );
-  priceRange.max = initialMaxPrice;
-  priceRange.value = initialMaxPrice;
-  maxPriceValue.textContent = formatPrice(initialMaxPrice);
-
-  searchBar.addEventListener("input", applyFilters);
-  categoryFilter.addEventListener("change", applyFilters);
-  priceRange.addEventListener("input", () => {
-    const currentPrice = parseFloat(priceRange.value);
-    maxPriceValue.textContent = formatPrice(currentPrice);
-    applyFilters();
-  });
-
-  clearFiltersButton.addEventListener("click", () => {
-    searchBar.value = "";
-    categoryFilter.value = "todos";
-    priceRange.value = initialMaxPrice;
-    maxPriceValue.textContent = formatPrice(initialMaxPrice);
-    applyFilters();
-  });
-};
-
-// --- INICIALIZAÇÃO E LISTENERS GERAIS ---
-
+/** Inicializa os event listeners */
 const setupEventListeners = () => {
-  // 1. Sidebar/Filtros (Mobile Toggle)
-  if (menuToggle && sidebar)
+  // Toggle Sidebar (Menu Mobile)
+  if (menuToggle)
     menuToggle.addEventListener("click", () => sidebar.classList.add("open"));
   if (closeSidebarBtn)
-    closeSidebarBtn.addEventListener("click", () => closeModal(sidebar));
+    closeSidebarBtn.addEventListener("click", () =>
+      sidebar.classList.remove("open")
+    );
 
-  // 2. Carrinho Modal
+  // Toggle Carrinho
   if (cartToggleBtn)
     cartToggleBtn.addEventListener("click", () => {
       cartModal.classList.add("open");
-      cartModal.setAttribute("aria-hidden", "false");
-      updateCartUI();
+      document.body.style.overflow = "hidden"; // Bloqueia scroll do body
     });
   if (closeCartModal)
     closeCartModal.addEventListener("click", () => closeModal(cartModal));
-  if (checkoutWhatsappBtn)
-    checkoutWhatsappBtn.addEventListener("click", prepareCartWhatsAppMessage);
-  if (clearCartBtn)
-    clearCartBtn.addEventListener("click", () => {
-      cart = [];
-      updateCartUI();
-    });
 
-  // 3. Detalhes do Produto Modal (Stories)
+  // Fechar Modal de Detalhes
   if (closeProductDetailModal)
     closeProductDetailModal.addEventListener("click", () =>
       closeModal(productDetailModal)
     );
 
-  // 4. LightBox Modal
+  // Fechar Lightbox
   if (closeImageLightboxModal)
     closeImageLightboxModal.addEventListener("click", () =>
       closeModal(imageLightboxModal)
     );
 
-  // Fechar modais ao clicar no fundo
+  // Lógica do Range de Preço (Mudança visual imediata, filtro manual)
+  if (priceRange) priceRange.addEventListener("input", handlePriceRangeChange);
+
+  // Event Listener para o botão Aplicar Filtros (mantido)
+  if (applyFiltersButton)
+    applyFiltersButton.addEventListener("click", () => {
+      applyFiltersAndRender();
+      // Fecha a sidebar em mobile após aplicar
+      sidebar.classList.remove("open");
+    });
+
+  // Limpar Filtros (mantido)
+  if (clearFiltersButton)
+    clearFiltersButton.addEventListener("click", clearFilters);
+
+  // Checkout para WhatsApp (mantido)
+  if (checkoutWhatsappBtn) {
+    checkoutWhatsappBtn.addEventListener("click", () => {
+      const message = generateCartMessage();
+      const waLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+        message
+      )}`;
+      window.open(waLink, "_blank");
+      closeModal(cartModal);
+    });
+  }
+
+  // Limpar Carrinho (mantido)
+  if (clearCartBtn) {
+    clearCartBtn.addEventListener("click", () => {
+      cart = [];
+      updateCartUI();
+    });
+  }
+
+  // Fechar modais ao clicar fora (mantido)
   [cartModal, productDetailModal, imageLightboxModal].forEach((modal) => {
     if (modal) {
       modal.addEventListener("click", (e) => {
@@ -570,7 +624,7 @@ const setupEventListeners = () => {
     }
   });
 
-  // 5. Adicionar ao Carrinho (Catálogo)
+  // 5. Adicionar ao Carrinho (Catálogo) (mantido)
   if (catalogGrid) {
     catalogGrid.addEventListener("click", (event) => {
       const target = event.target.closest(".add-to-cart-btn");
@@ -590,9 +644,19 @@ const setupEventListeners = () => {
     });
   }
 
-  // 6. Manipulação de Itens no Carrinho (Modal)
+  // 6. Manipulação de Itens no Carrinho (Modal) (mantido)
   if (cartItemsContainer)
     cartItemsContainer.addEventListener("click", handleCartAction);
+
+  // Evento para o link do footer 'Meu Carrinho' (mantido)
+  const openCartLink = document.getElementById("open-cart-link");
+  if (openCartLink) {
+    openCartLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      cartModal.classList.add("open");
+      document.body.style.overflow = "hidden"; // Bloqueia scroll do body
+    });
+  }
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -602,15 +666,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // 2. Inicializa o layout e eventos
   setupEventListeners();
 
-  // 3. Inicializa os filtros
-  initFilters();
-
-  // 4. Renderiza a seção de Destaques (Stories)
+  // 3. Inicializa os Destaques
   renderHighlights();
 
-  // 5. Renderiza o Catálogo principal
-  renderProducts(productData);
+  // 4. Renderização inicial do catálogo, aplicando filtros vazios
+  applyFiltersAndRender();
 
-  // 6. Atualiza a UI do carrinho com os dados carregados
+  // 5. Atualiza o estado visual do carrinho
   updateCartUI();
 });

@@ -340,6 +340,8 @@ main {
 .btn-primary {
   background-color: var(--primary-color);
   color: white;
+  margin-bottom: 8px;
+  margin-top: 8px;
 }
 
 .btn-primary:hover {
@@ -366,6 +368,7 @@ main {
 .btn-secondary {
   background-color: #6c757d;
   color: white;
+  margin-top: 8px;
 }
 
 .btn-secondary:hover {
@@ -476,6 +479,12 @@ main {
   pointer-events: auto;
 }
 
+/* NOVO AJUSTE: CORREÇÃO DE Z-INDEX PARA LIGHTBOX (para ficar acima de outros modais) */
+.image-lightbox-modal {
+  z-index: 3000;
+}
+/* FIM NOVO AJUSTE */
+
 .modal-content {
   background: white;
   padding: 30px;
@@ -542,6 +551,38 @@ main {
   margin-bottom: 15px;
 }
 
+/* NOVO AJUSTE: Lista de Detalhes (Style) */
+.detail-text-area ul {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 25px;
+  text-align: left;
+  max-width: 350px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.detail-text-area ul li {
+  font-size: 1em;
+  color: var(--text-color);
+  margin-bottom: 8px;
+  position: relative;
+  padding-left: 20px;
+}
+
+.detail-text-area ul li::before {
+  content: "\f00c"; /* Ícone de checkmark */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  color: var(--primary-color);
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 0.8em;
+  line-height: 1.6;
+}
+/* FIM NOVO AJUSTE */
+
 .detail-price {
   font-size: 2em;
   font-weight: 700;
@@ -549,10 +590,23 @@ main {
   margin-bottom: 20px;
 }
 
-.detail-whatsapp-btn {
-  width: 90%;
-  margin-bottom: 20px;
+/* NOVO AJUSTE: Espaçamento dos Botões (Modal Actions) */
+.product-detail-content .modal-actions {
+  flex-direction: column; /* Força empilhamento em coluna */
+  gap: 15px; /* Aumenta o espaçamento entre botões */
+  padding: 0 20px 0; /* Alinha com as áreas de texto */
+  margin-top: 10px;
 }
+
+.product-detail-content .modal-actions .btn {
+  width: 100%;
+}
+
+.detail-whatsapp-btn {
+  width: 100%; /* Ajustado para 100% para alinhamento com a nova modal-actions */
+  margin-bottom: 0; /* Removido margin-bottom para o gap do modal-actions gerenciar o espaçamento */
+}
+/* FIM NOVO AJUSTE */
 
 /* LightBox */
 .image-lightbox-modal .lightbox-content {
@@ -582,7 +636,7 @@ main {
   font-size: 2em;
   right: 20px;
   top: 20px;
-  z-index: 2010;
+  z-index: 3010; /* Garante que o botão de fechar fique sobre o lightbox (3000) */
 }
 
 /* Altera o background do content para escuro no lightbox (para a imagem) */
@@ -625,7 +679,7 @@ main {
   border-bottom: none;
 }
 
-/* Imagem no Carrinho */
+/* Imagem no Carrinho (Ajuste de miniatura) */
 .cart-item-image {
   width: 50px;
   height: 50px;
@@ -637,7 +691,7 @@ main {
 
 .cart-item-info {
   display: flex;
-  align-items: center;
+  align-items: center; /* Garante alinhamento vertical */
   flex-grow: 1;
   text-align: left;
 }
@@ -647,36 +701,56 @@ main {
   font-size: 0.9em;
   color: var(--primary-dark);
   line-height: 1.2;
+  margin-bottom: 2px;
 }
 
 .cart-item-info span {
   font-size: 0.8em;
   color: #6c757d;
+  line-height: 1.2;
 }
 
 .item-quantity-control {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px; /* Aumentado o gap para melhor espaçamento */
   flex-shrink: 0;
 }
 
+/* Estilo dos Botões de Controle de Quantidade */
 .item-quantity-control button {
-  background-color: #f1f1f1;
-  border: 1px solid #ddd;
-  color: var(--text-color);
-  width: 30px;
-  height: 30px;
+  background-color: white;
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  width: 28px;
+  height: 28px;
   border-radius: 4px;
-  font-size: 0.8em;
+  font-size: 0.9em;
   padding: 0;
   line-height: 1;
-  transition: background-color 0.2s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .item-quantity-control button:hover {
-  background-color: #e2e2e2;
+  background-color: var(--primary-color);
+  color: white;
 }
+
+/* Destaque para o botão de remover */
+.item-quantity-control button[data-action="remove"] {
+  color: #dc3545; /* Vermelho de perigo */
+  border-color: #dc3545;
+}
+
+.item-quantity-control button[data-action="remove"]:hover {
+  background-color: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}
+/* FIM CORREÇÕES CARRINHO */
 
 .item-quantity-control span {
   font-weight: 600;
@@ -775,6 +849,50 @@ main {
   }
 }
 
+footer {
+  background-color: var(--primary-dark);
+  color: #ffffff;
+  padding: 40px 20px; /* Um pouco mais de padding para respiro */
+  text-align: center;
+  margin-top: 60px; /* Mais espaçamento do conteúdo acima */
+  border-top: 4px solid var(--primary-color);
+  font-family: "Segoe UI", Tahoma, sans-serif;
+}
+
+footer p {
+  margin: 0 0 10px 0; /* Espaçamento inferior para separar do link */
+  font-size: 0.95em;
+  line-height: 1.6;
+  color: #e0e0e0; /* Tom mais suave que o branco puro */
+}
+
+footer a {
+  color: #ffc107;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease; /* Transição mais suave */
+  margin: 0 5px; /* Pequeno espaçamento lateral */
+}
+
+footer a:hover {
+  color: #ffffff;
+  text-shadow: 0 0 5px #ffc107; /* Pequeno efeito de destaque ao passar o mouse */
+}
+
+footer ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex; /* Faz os itens ficarem lado a lado */
+  justify-content: center; /* Centraliza horizontalmente */
+  flex-wrap: wrap; /* Permite quebrar linha se necessário */
+  gap: 20px; /* Espaçamento entre os itens */
+}
+
+footer ul li {
+  margin: 0; /* Remove margens padrão */
+}
+
 @media (max-width: 576px) {
   header {
     padding: 10px 15px;
@@ -800,8 +918,9 @@ main {
   }
 
   .cart-item-info {
-    flex-wrap: wrap;
-    justify-content: space-between;
+    flex-wrap: nowrap;
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .item-quantity-control {
@@ -824,5 +943,26 @@ main {
 
   .detail-text-area {
     padding: 0 15px 15px;
+  }
+}
+
+/* -------------------------- */
+/* 9. Footer (NOVA SEÇÃO)     */
+/* -------------------------- */
+
+/* Responsividade para telas menores */
+@media (max-width: 600px) {
+  footer {
+    padding: 30px 15px;
+  }
+
+  footer p {
+    font-size: 0.9em;
+  }
+
+  footer ul {
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
   }
 }
